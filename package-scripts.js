@@ -19,4 +19,4 @@ module.exports = {
     lint: 'eslint src test; exit 0',
     test: 'jest'
   }
-};
+}

@@ -50,13 +50,13 @@ module.exports = class SentryPlugin {
     this.createReleaseRequestOptions =
       options.createReleaseRequestOptions || options.requestOptions || {}
     if (typeof this.createReleaseRequestOptions === 'object') {
-      const createReleaseRequestOptions = this.createReleaseRequestOptions
+      const { createReleaseRequestOptions } = this
       this.createReleaseRequestOptions = () => createReleaseRequestOptions
     }
     this.uploadFileRequestOptions =
       options.uploadFileRequestOptions || options.requestOptions || {}
     if (typeof this.uploadFileRequestOptions === 'object') {
-      const uploadFileRequestOptions = this.uploadFileRequestOptions
+      const { uploadFileRequestOptions } = this
       this.uploadFileRequestOptions = () => uploadFileRequestOptions
     }
     if (options.requestOptions) {
@@ -195,23 +195,34 @@ module.exports = class SentryPlugin {
   }
 
   uploadFile({ path, name }) {
-    return request(
-      this.combineRequestOptions(
-        {
-          url: `${this.sentryReleaseUrl()}/${this.releaseVersion}/files/`,
-          method: 'POST',
-          auth: {
-            bearer: this.apiKey,
+    return new Promise((resolve, reject) => {
+      request(
+        this.combineRequestOptions(
+          {
+            url: `${this.sentryReleaseUrl()}/${this.releaseVersion}/files/`,
+            method: 'POST',
+            auth: {
+              bearer: this.apiKey,
+            },
+            headers: {},
+            formData: {
+              file: fs.createReadStream(path),
+              name: this.filenameTransform(name),
+            },
           },
-          headers: {},
-          formData: {
-            file: fs.createReadStream(path),
-            name: this.filenameTransform(name),
-          },
-        },
-        this.uploadFileRequestOptions,
-      ),
-    )
+          this.uploadFileRequestOptions,
+        ),
+      ).then(() => {
+        resolve()
+      }).catch(({ error }) => {
+        if (error === '{"detail": "A file matching this name already exists for the given release"}') {
+          resolve()
+        }
+        else {
+          reject()
+        }
+      })
+    })
   }
 
   sentryReleaseUrl() {
